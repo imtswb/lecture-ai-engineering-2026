@@ -180,7 +180,22 @@ def search_graph(query: str) -> dict:
                              "path": [{"id": n, "title": nodes[n]["title"]} for n in route]}
                 if neighbor not in candidates or priority < candidates[neighbor][0]:
                     candidates[neighbor] = (priority, candidate)
-    expanded = [candidate for _, candidate in sorted(candidates.values())]
+    def relevance(candidate: dict) -> int:
+        terms = re.findall(r"[A-Za-z0-9]+|[ぁ-んァ-ヶ一-龥]+", query.casefold())
+        text = f"{candidate['title']} {candidate['content']}".casefold()
+        return sum(len(term) for term in set(terms) if len(term) >= 2 and term in text)
+
+    expanded_candidates = [candidate for _, candidate in candidates.values()]
+    for candidate in expanded_candidates:
+        candidate["relevance_score"] = relevance(candidate)
+    expanded = sorted(
+        expanded_candidates,
+        key=lambda candidate: (
+            -candidate["relevance_score"],
+            candidate["hops"],
+            candidate["page_id"],
+        ),
+    )
     return {"seeds": results, "expanded": expanded[:max(0, GRAPH_MAX_RESULTS - len(results))],
             "max_hops": GRAPH_HOPS}
 
